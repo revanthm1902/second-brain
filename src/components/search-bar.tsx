@@ -34,7 +34,7 @@ export function SearchBar({ value, onChange }: SearchBarProps) {
         onChange={(e) => onChange(e.target.value)}
         onFocus={() => setIsFocused(true)}
         onBlur={() => setIsFocused(false)}
-        className={`w-full h-12 pl-11 pr-4 sm:pr-24 rounded-xl neo-border bg-white text-sm font-medium shadow-[3px_3px_0_#1a1a1a] transition-all duration-150 placeholder:text-(--fg-muted) placeholder:font-normal focus:outline-none ${isFocused ? "!border-accent -translate-x-px -translate-y-px shadow-[4px_4px_0_var(--accent)]" : ""}`}
+        className={`w-full h-12 pl-11 pr-4 sm:pr-24 rounded-xl neo-border bg-white text-sm font-medium shadow-[3px_3px_0_#1a1a1a] transition-all duration-150 placeholder:text-(--fg-muted) placeholder:font-normal focus:outline-none ${isFocused ? "border-accent! -translate-x-px -translate-y-px shadow-[4px_4px_0_var(--accent)]" : ""}`}
       />
       <AnimatePresence>
         {!isFocused && !value && (
