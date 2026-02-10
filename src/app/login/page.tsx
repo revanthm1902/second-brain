@@ -5,8 +5,8 @@ import { createClient } from "@/app/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Brain, Loader2, Sparkles } from "lucide-react";
-import { motion } from "framer-motion";
+import { Brain, Loader2, Sparkles, ArrowRight } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -15,6 +15,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [transitioning, setTransitioning] = useState(false);
 
   const supabase = createClient();
 
@@ -28,150 +29,122 @@ export default function LoginPage() {
       const { error: signUpError } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-        },
+        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
       });
-      if (signUpError) {
-        setError(signUpError.message);
-      } else {
-        setMessage("Check your email for the confirmation link.");
-      }
+      if (signUpError) setError(signUpError.message);
+      else setMessage("Check your email for the confirmation link.");
+      setLoading(false);
     } else {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
       if (signInError) {
         setError(signInError.message);
+        setLoading(false);
       } else {
-        window.location.href = "/";
+        setLoading(false);
+        setTransitioning(true);
+        setTimeout(() => { window.location.href = "/"; }, 800);
       }
     }
-
-    setLoading(false);
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-indigo-50/30 to-slate-50 relative overflow-hidden">
-      {/* Background decoration */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-indigo-200/30 rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-200/30 rounded-full blur-3xl" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-indigo-100/20 rounded-full blur-3xl" />
-      </div>
-
+    <AnimatePresence>
       <motion.div
-        initial={{ opacity: 0, y: 20, scale: 0.95 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-        className="relative w-full max-w-md mx-4"
+        animate={transitioning ? { y: "-100vh", opacity: 0 } : { y: 0, opacity: 1 }}
+        transition={transitioning ? { duration: 0.7, ease: [0.65, 0, 0.35, 1] } : {}}
+        className="min-h-screen flex items-center justify-center relative overflow-hidden bg-background"
       >
-        <div className="bg-white/70 backdrop-blur-2xl rounded-3xl border border-white/50 shadow-2xl shadow-indigo-500/5 p-10">
-          {/* Logo */}
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-            className="flex flex-col items-center mb-8"
-          >
-            <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-indigo-500/25">
-              <Brain className="w-8 h-8 text-white" />
-            </div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-              Second Brain
-            </h1>
-            <p className="text-sm text-slate-500 mt-1 flex items-center gap-1">
-              <Sparkles className="w-3.5 h-3.5" />
-              AI-powered knowledge system
-            </p>
-          </motion.div>
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
-              />
-            </div>
-
-            {error && (
-              <motion.div
-                initial={{ opacity: 0, y: -5 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="text-sm text-red-600 bg-red-50 rounded-xl px-4 py-3 border border-red-100"
-              >
-                {error}
-              </motion.div>
-            )}
-
-            {message && (
-              <motion.div
-                initial={{ opacity: 0, y: -5 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="text-sm text-emerald-600 bg-emerald-50 rounded-xl px-4 py-3 border border-emerald-100"
-              >
-                {message}
-              </motion.div>
-            )}
-
-            <Button
-              type="submit"
-              className="w-full h-12 text-base"
-              disabled={loading}
-            >
-              {loading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : isSignUp ? (
-                "Create Account"
-              ) : (
-                "Sign In"
-              )}
-            </Button>
-          </form>
-
-          {/* Toggle */}
-          <div className="mt-6 text-center">
-            <button
-              type="button"
-              onClick={() => {
-                setIsSignUp(!isSignUp);
-                setError(null);
-                setMessage(null);
-              }}
-              className="text-sm text-slate-500 hover:text-indigo-600 transition-colors cursor-pointer"
-            >
-              {isSignUp
-                ? "Already have an account? Sign in"
-                : "Don't have an account? Sign up"}
-            </button>
-          </div>
+        {/* Ruled paper background */}
+        <div className="fixed inset-0 pointer-events-none z-0">
+          <div className="absolute inset-0 bg-[#f8f4e8]" />
+          <div className="absolute top-0 bottom-0 left-20 w-0.5 bg-[#e8bfbf]/60" />
+          <div className="absolute top-0 bottom-0 left-21 w-px bg-[#e8bfbf]/40" />
+          <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <pattern id="ruled-lines" x="0" y="0" width="100%" height="32" patternUnits="userSpaceOnUse">
+                <line x1="0" y1="31" x2="100%" y2="31" stroke="#c8d4e8" strokeWidth="1" opacity="0.5" />
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#ruled-lines)" />
+          </svg>
+          <div className="absolute left-7 top-[15%] w-5 h-5 rounded-full border-2 border-[#d0c8b8]/40 bg-[#e8e0d0]/30" />
+          <div className="absolute left-7 top-1/2 w-5 h-5 rounded-full border-2 border-[#d0c8b8]/40 bg-[#e8e0d0]/30" />
+          <div className="absolute left-7 top-[85%] w-5 h-5 rounded-full border-2 border-[#d0c8b8]/40 bg-[#e8e0d0]/30" />
         </div>
 
-        {/* Footer */}
-        <p className="text-center text-xs text-slate-400 mt-6">
-          Your ideas, organized by AI. Secured by Supabase.
-        </p>
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={transitioning ? { opacity: 0, scale: 0.9 } : { opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+          className="relative z-10 w-full max-w-md mx-4"
+        >
+          <div className="bg-white neo-border rounded-3xl shadow-[8px_8px_0_#1a1a1a] p-10 relative overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-2 bg-accent" />
+
+            {/* Logo */}
+            <div className="flex flex-col items-center mb-8 pt-2">
+              <div className="w-20 h-20 bg-accent neo-border rounded-2xl flex items-center justify-center shadow-[4px_4px_0_#1a1a1a] mb-4">
+                <Brain className="w-10 h-10 text-white" />
+              </div>
+              <h1 className="text-3xl font-black tracking-tight text-foreground">Second Brain</h1>
+              <div className="flex items-center gap-1.5 mt-2 bg-accent/10 text-accent font-bold text-xs uppercase tracking-widest px-3 py-1.5 rounded-lg border-2 border-accent/30">
+                <Sparkles className="w-3.5 h-3.5" />
+                AI-powered knowledge system
+              </div>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input id="password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
+              </div>
+
+              {error && (
+                <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="text-sm font-bold text-red-600 bg-red-50 rounded-xl px-4 py-3 border-2 border-red-300 shadow-[2px_2px_0_#ef4444]">
+                  {error}
+                </motion.div>
+              )}
+              {message && (
+                <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="text-sm font-bold text-emerald-700 bg-emerald-50 rounded-xl px-4 py-3 border-2 border-emerald-300 shadow-[2px_2px_0_#22c55e]">
+                  {message}
+                </motion.div>
+              )}
+
+              <Button type="submit" className="w-full h-13 text-base" size="lg" disabled={loading || transitioning}>
+                {loading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : transitioning ? (
+                  <><Sparkles className="w-5 h-5 animate-pulse" /> Entering your brain...</>
+                ) : (
+                  <>{isSignUp ? "Create Account" : "Sign In"} <ArrowRight className="w-5 h-5" /></>
+                )}
+              </Button>
+            </form>
+
+            <div className="mt-6 text-center">
+              <button
+                type="button"
+                onClick={() => { setIsSignUp(!isSignUp); setError(null); setMessage(null); }}
+                className="text-sm font-bold text-(--fg-muted) hover:text-accent transition-colors cursor-pointer underline underline-offset-4 decoration-2 decoration-(--fg-muted)/30 hover:decoration-accent"
+              >
+                {isSignUp ? "Already have an account? Sign in" : "Don't have an account? Sign up"}
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-center gap-3 mt-6">
+            {["🧠 Ideas", "🔗 Links", "💡 Insights", "✨ AI"].map((label) => (
+              <span key={label} className="text-xs font-bold text-(--fg-muted) bg-white border-2 border-(--border) rounded-lg px-3 py-1.5 shadow-[2px_2px_0_#1a1a1a]">
+                {label}
+              </span>
+            ))}
+          </div>
+        </motion.div>
       </motion.div>
-    </div>
+    </AnimatePresence>
   );
 }

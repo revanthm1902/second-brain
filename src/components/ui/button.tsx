@@ -6,27 +6,27 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/app/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98] cursor-pointer",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-bold transition-all duration-150 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 cursor-pointer select-none active:translate-x-0.5 active:translate-y-0.5 active:shadow-[2px_2px_0_#1a1a1a]",
   {
     variants: {
       variant: {
         default:
-          "bg-indigo-600 text-white shadow-sm hover:bg-indigo-700 hover:shadow-md hover:scale-[1.02]",
-        destructive:
-          "bg-red-500 text-white shadow-sm hover:bg-red-600 hover:scale-[1.02]",
-        outline:
-          "border border-slate-200 bg-white/80 backdrop-blur-sm hover:bg-slate-50 hover:scale-[1.02] hover:border-slate-300",
+          "bg-accent text-white neo-border rounded-xl shadow-[4px_4px_0_#1a1a1a] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[6px_6px_0_#1a1a1a]",
         secondary:
-          "bg-slate-100 text-slate-900 hover:bg-slate-200 hover:scale-[1.02]",
+          "bg-neo-yellow text-foreground neo-border rounded-xl shadow-[4px_4px_0_#1a1a1a] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[6px_6px_0_#1a1a1a]",
+        outline:
+          "bg-white text-foreground neo-border rounded-xl shadow-[4px_4px_0_#1a1a1a] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[6px_6px_0_#1a1a1a] hover:bg-background",
+        destructive:
+          "bg-red-500 text-white neo-border rounded-xl shadow-[4px_4px_0_#1a1a1a] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[6px_6px_0_#1a1a1a]",
         ghost:
-          "hover:bg-slate-100 hover:scale-[1.02]",
-        link: "text-indigo-600 underline-offset-4 hover:underline",
+          "bg-transparent text-foreground rounded-xl hover:bg-background border-[2.5px] border-transparent hover:border-(--border)",
+        link: "text-accent underline-offset-4 hover:underline font-bold",
       },
       size: {
-        default: "h-10 px-5 py-2",
-        sm: "h-8 rounded-lg px-3 text-xs",
-        lg: "h-12 rounded-xl px-8 text-base",
-        icon: "h-10 w-10",
+        default: "h-11 px-5 py-2.5",
+        sm: "h-9 rounded-lg px-3 text-xs",
+        lg: "h-13 rounded-xl px-8 text-base",
+        icon: "h-11 w-11",
       },
     },
     defaultVariants: {

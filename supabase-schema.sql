@@ -15,9 +15,13 @@ CREATE TABLE IF NOT EXISTS brain_items (
   tags TEXT[] DEFAULT '{}',
   ai_summary TEXT,
   ai_tags TEXT[] DEFAULT '{}',
+  ai_category TEXT,
   created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
   updated_at TIMESTAMPTZ DEFAULT now() NOT NULL
 );
+
+-- If you already have the table, run this to add the new column:
+-- ALTER TABLE brain_items ADD COLUMN IF NOT EXISTS ai_category TEXT;
 
 -- 2. Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_brain_items_user_id ON brain_items(user_id);
