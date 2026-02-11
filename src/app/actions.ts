@@ -1,65 +1,14 @@
 "use server";
 
 import { createServerSupabase } from "@/app/lib/supabase-server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { revalidatePath } from "next/cache";
 import type { BrainItem, ItemType } from "@/app/lib/types";
-import { DEFAULT_TAG_CATEGORIES } from "@/app/lib/types";
-
-// ─── AI Helper — Improved summarization + auto-tagging ───────
-async function generateAIMetadata(
-  title: string,
-  content: string
-): Promise<{ summary: string; tags: string[]; category: string }> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey || apiKey === "your_gemini_api_key") {
-    return {
-      summary: `${title} — ${content.slice(0, 80)}`,
-      tags: ["untagged"],
-      category: "Learning",
-    };
-  }
-
-  const allCategories = DEFAULT_TAG_CATEGORIES.map((c) => c.name);
-
-  try {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-
-    const truncatedContent = content.length > 2000 ? content.slice(0, 2000) + '...' : content;
-
-    const prompt = `You are a knowledge curator. Read the content below and produce metadata.
-
-Title: ${title}
-Content: ${truncatedContent}
-
-Rules:
-1. SUMMARY: Write 2-3 sentences that explain the CORE IDEA — what this is about, what the takeaway is, and why it matters. DO NOT copy the title or repeat the first lines verbatim. Synthesize and distill the meaning in your own words.
-2. TAGS: 3-5 lowercase hyphenated tags about the specific topics (e.g. "knowledge-management", "ai-tools", "note-taking"). No generic words like "idea" or "content".
-3. CATEGORY: Pick ONE from: ${allCategories.join(", ")}
-
-Return ONLY this JSON, nothing else:
-{"summary": "...", "tags": ["..."], "category": "..."}`;
-
-    const result = await model.generateContent(prompt);
-    const text = result.response.text().trim();
-    const cleaned = text.replace(/```json\n?|\n?```/g, "").trim();
-    const parsed = JSON.parse(cleaned);
-
-    return {
-      summary: parsed.summary || title,
-      tags: Array.isArray(parsed.tags) ? parsed.tags.slice(0, 5) : ["untagged"],
-      category: allCategories.includes(parsed.category) ? parsed.category : "Learning",
-    };
-  } catch (error) {
-    console.error("AI generation failed:", error);
-    return {
-      summary: `${title} — ${content.slice(0, 80)}`,
-      tags: ["untagged"],
-      category: "Learning",
-    };
-  }
-}
+import {
+  generateAIMetadata,
+  queryBrainAI,
+  AIConfigError,
+  AIQuotaError,
+} from "@/app/lib/ai-service";
 
 // ─── Conversational AI Query ─────────────────────────────────
 export async function queryBrain(
@@ -87,55 +36,31 @@ export async function queryBrain(
     };
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey || apiKey === "your_gemini_api_key") {
-    return { answer: "AI is not configured. Add your Gemini API key.", sources: [] };
-  }
-
-  // Build context from brain items — keep it concise to avoid token limits
-  const brainContext = items
-    .slice(0, 30)
-    .map(
-      (item: BrainItem, i: number) =>
-        `[${i + 1}] "${item.title}" (${item.type}): ${(item.ai_summary || item.content || "").slice(0, 150)}`
-    )
-    .join("\n");
-
   try {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const { answer, sourceIndices } = await queryBrainAI(question, items as BrainItem[]);
 
-    const prompt = `You are a helpful assistant for a personal knowledge base. Answer based on the notes below.
+    const sources = sourceIndices.map((i) => items[i] as BrainItem);
 
-NOTES:
-${brainContext}
-
-QUESTION: ${question}
-
-Rules: Be concise (2-4 sentences). Cite notes by index like [1]. If no relevant notes exist, say so.`;
-
-    const result = await model.generateContent(prompt);
-    const responseText = result.response.text();
-    if (!responseText) {
-      return { answer: "I couldn't generate an answer. Please try rephrasing your question.", sources: [] };
-    }
-    const answer = responseText.trim();
-
-    // Extract referenced indices from the answer
-    const indexMatches = answer.match(/\[(\d+)\]/g);
-    const referencedIndices = indexMatches
-      ? [...new Set(indexMatches.map((m) => parseInt(m.replace(/[\[\]]/g, "")) - 1))]
-      : [];
-
-    const sources = referencedIndices
-      .filter((i) => i >= 0 && i < items.length)
-      .map((i) => items[i] as BrainItem);
-
-    return { answer, sources: sources.length > 0 ? sources : (items.slice(0, 2) as BrainItem[]) };
+    return {
+      answer,
+      sources: sources.length > 0 ? sources : (items.slice(0, 2) as BrainItem[]),
+    };
   } catch (err: unknown) {
+    if (err instanceof AIConfigError) {
+      return { answer: err.message, sources: [] };
+    }
+    if (err instanceof AIQuotaError) {
+      return {
+        answer: "⚠️ AI quota exceeded — the free Gemini API tier has limited requests per minute. Please wait about a minute and try again.",
+        sources: [],
+      };
+    }
     const errorMsg = err instanceof Error ? err.message : String(err);
     console.error("Brain query failed:", errorMsg);
-    return { answer: `I had trouble processing that. Error: ${errorMsg.slice(0, 100)}`, sources: [] };
+    return {
+      answer: "I had trouble processing that. The AI service may be temporarily unavailable. Please try again in a moment.",
+      sources: [],
+    };
   }
 }
 

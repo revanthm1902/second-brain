@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { queryBrainAI, AIConfigError, AIQuotaError } from "@/app/lib/ai-service";
+import type { BrainItem } from "@/app/lib/types";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -93,55 +94,37 @@ export async function POST(request: Request) {
       );
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
+    try {
+      const { answer, sourceIndices } = await queryBrainAI(question, items as BrainItem[]);
+
+      const sources = sourceIndices
+        .filter((i) => i >= 0 && i < items.length)
+        .map((i) => ({
+          id: items[i].id,
+          title: items[i].title,
+          type: items[i].type,
+          ai_summary: items[i].ai_summary,
+        }));
+
       return NextResponse.json(
-        { error: "AI not configured" },
-        { status: 500, headers: corsHeaders }
+        { answer, sources, timestamp: new Date().toISOString() },
+        { status: 200, headers: corsHeaders }
       );
+    } catch (err) {
+      if (err instanceof AIConfigError) {
+        return NextResponse.json(
+          { error: err.message },
+          { status: 500, headers: corsHeaders }
+        );
+      }
+      if (err instanceof AIQuotaError) {
+        return NextResponse.json(
+          { answer: "AI quota exceeded. Please wait a minute and try again.", sources: [] },
+          { status: 200, headers: corsHeaders }
+        );
+      }
+      throw err;
     }
-
-    const context = items
-      .map(
-        (item, i) =>
-          `[${i + 1}] "${item.title}" (${item.type}): ${item.ai_summary || item.content?.slice(0, 200)}`
-      )
-      .join("\n");
-
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-
-    const prompt = `You are a helpful assistant for a personal knowledge base. Answer based ONLY on the notes provided.
-
-KNOWLEDGE BASE:
-${context}
-
-QUESTION: "${question}"
-
-Be concise (2-4 sentences). Reference notes by their index [1], [2], etc.`;
-
-    const result = await model.generateContent(prompt);
-    const answer = result.response.text().trim();
-
-    // Extract source indices
-    const indexMatches = answer.match(/\[(\d+)\]/g);
-    const indices = indexMatches
-      ? [...new Set(indexMatches.map((m) => parseInt(m.replace(/[\[\]]/g, "")) - 1))]
-      : [];
-
-    const sources = indices
-      .filter((i) => i >= 0 && i < items.length)
-      .map((i) => ({
-        id: items[i].id,
-        title: items[i].title,
-        type: items[i].type,
-        ai_summary: items[i].ai_summary,
-      }));
-
-    return NextResponse.json(
-      { answer, sources, timestamp: new Date().toISOString() },
-      { status: 200, headers: corsHeaders }
-    );
   } catch {
     return NextResponse.json(
       { error: "Failed to process query" },
