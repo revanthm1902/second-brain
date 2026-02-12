@@ -9,11 +9,15 @@ A premium AI-powered personal knowledge base built with **Next.js 16**, **Supaba
 ## Features
 
 - **AI-Powered Capture** — Drop any idea, link, or insight. Gemini AI generates a detailed summary, smart tags, and a category automatically.
-- **Conversational Brain Query** — Ask your knowledge base questions in natural language. AI finds answers and cites sources from your notes.
+- **Semantic Vector Search** — Search your knowledge base using AI-powered semantic search with pgvector embeddings (Gemini text-embedding-004). Falls back to text search gracefully.
+- **Knowledge Graph** — Visualize relationships between your notes using React Flow. Nodes connect via shared tags and categories.
+- **File Upload** — Upload documents (.txt, .md, .csv, .json, .pdf) with automatic metadata extraction, AI summarization, and tagging.
+- **Command Palette** — Power-user keyboard shortcuts (`Ctrl+K` to open, `N` to capture, `U` to upload, `G` for graph). Search notes and run actions instantly.
 - **Smart Filtering** — Filter by type (notes, links, insights), by AI-generated tags, or search full-text across everything.
 - **Neobrutalism UI** — Bold borders, hard shadows, vibrant colors, ruled-paper login, and smooth Framer Motion animations.
+- **Accessibility** — Proper ARIA labels, keyboard navigation, focus indicators, and screen reader support throughout.
 - **Auth & Security** — Email/password authentication via Supabase Auth with SSR cookie sessions and proxy middleware.
-- **Embeddable Widget** — A standalone `/widget` page with Browse and Ask modes for embedding your brain anywhere.
+- **Embeddable Widget** — A standalone `/widget` page with browse mode for embedding your brain anywhere.
 - **Responsive** — Mobile-first design with fullscreen modals, floating FABs, and adaptive layouts.
 
 ## Tech Stack
@@ -24,8 +28,10 @@ A premium AI-powered personal knowledge base built with **Next.js 16**, **Supaba
 | Language | TypeScript 5 |
 | Styling | Tailwind CSS v4 + custom neobrutalism design system |
 | Animation | Framer Motion + Lenis smooth scroll |
-| Database | Supabase (PostgreSQL + Auth + SSR) |
-| AI | Google Gemini 2.0 Flash |
+| Database | Supabase (PostgreSQL + pgvector + Auth + SSR) |
+| AI | Google Gemini 2.0 Flash (summarization) + text-embedding-004 (vectors) |
+| Graph | React Flow (knowledge graph visualization) |
+| Command Palette | cmdk (command menu) |
 | UI Primitives | Radix UI (Dialog, Select, Label) |
 | Components | Shadcn/UI-inspired with CVA variants |
 
@@ -60,6 +66,9 @@ GEMINI_API_KEY=your_gemini_api_key
 Run this SQL in your Supabase SQL Editor:
 
 ```sql
+-- Enable pgvector extension for semantic search
+CREATE EXTENSION IF NOT EXISTS vector;
+
 CREATE TABLE brain_items (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
@@ -70,6 +79,10 @@ CREATE TABLE brain_items (
   ai_summary TEXT,
   ai_tags TEXT[] DEFAULT '{}',
   ai_category TEXT,
+  embedding VECTOR(768),
+  file_name TEXT,
+  file_type TEXT,
+  file_size INTEGER,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -83,7 +96,73 @@ CREATE POLICY "Users can manage own items"
 CREATE INDEX idx_brain_items_user ON brain_items(user_id);
 CREATE INDEX idx_brain_items_type ON brain_items(type);
 CREATE INDEX idx_brain_items_created ON brain_items(created_at DESC);
+CREATE INDEX idx_brain_items_embedding ON brain_items USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+
+-- Vector search function
+CREATE OR REPLACE FUNCTION match_brain_items(
+  query_embedding VECTOR(768),
+  match_threshold FLOAT,
+  match_count INT,
+  p_user_id UUID
+)
+RETURNS TABLE (
+  id UUID,
+  user_id UUID,
+  title TEXT,
+  content TEXT,
+  type TEXT,
+  tags TEXT[],
+  ai_summary TEXT,
+  ai_tags TEXT[],
+  ai_category TEXT,
+  file_name TEXT,
+  file_type TEXT,
+  file_size INTEGER,
+  created_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ,
+  similarity FLOAT
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    bi.id,
+    bi.user_id,
+    bi.title,
+    bi.content,
+    bi.type,
+    bi.tags,
+    bi.ai_summary,
+    bi.ai_tags,
+    bi.ai_category,
+    bi.file_name,
+    bi.file_type,
+    bi.file_size,
+    bi.created_at,
+    bi.updated_at,
+    1 - (bi.embedding <=> query_embedding) AS similarity
+  FROM brain_items bi
+  WHERE bi.user_id = p_user_id
+    AND bi.embedding IS NOT NULL
+    AND 1 - (bi.embedding <=> query_embedding) > match_threshold
+  ORDER BY bi.embedding <=> query_embedding
+  LIMIT match_count;
+END;
+$$;
 ```
+
+> **Note:** If you already have the `brain_items` table, run these ALTER statements instead:
+>
+> ```sql
+> CREATE EXTENSION IF NOT EXISTS vector;
+> ALTER TABLE brain_items ADD COLUMN IF NOT EXISTS embedding VECTOR(768);
+> ALTER TABLE brain_items ADD COLUMN IF NOT EXISTS file_name TEXT;
+> ALTER TABLE brain_items ADD COLUMN IF NOT EXISTS file_type TEXT;
+> ALTER TABLE brain_items ADD COLUMN IF NOT EXISTS file_size INTEGER;
+> CREATE INDEX IF NOT EXISTS idx_brain_items_embedding ON brain_items USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+> ```
+> Then create the `match_brain_items` function from the SQL above.
 
 ### 4. Run Development Server
 
@@ -93,6 +172,18 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) — sign up, and start capturing ideas.
 
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+K` / `Cmd+K` | Open command palette |
+| `N` | Capture new idea |
+| `U` | Upload document |
+| `G` | Open knowledge graph |
+| `Esc` | Close dialogs |
+| `↑ ↓` | Navigate command palette |
+| `Enter` | Select item in command palette |
+
 ## Project Structure
 
 ```
@@ -100,14 +191,19 @@ src/
 ├── app/
 │   ├── page.tsx              # Dashboard (server component)
 │   ├── login/page.tsx        # Auth page (ruled-paper background)
-│   ├── widget/page.tsx       # Embeddable widget
-│   ├── actions.ts            # Server actions (CRUD, AI, auth)
+│   ├── widget/page.tsx       # Embeddable widget (browse mode)
+│   ├── actions.ts            # Server actions (CRUD, AI, vector search, file upload)
 │   ├── api/public/brain/     # Public API for widget
 │   └── lib/                  # Supabase clients, types, utils
+│       ├── ai-service.ts     # Gemini AI (summarization, tagging, embeddings)
+│       ├── types.ts          # TypeScript types
+│       └── ...
 ├── components/
 │   ├── dashboard.tsx         # Main dashboard orchestrator
 │   ├── capture-modal.tsx     # AI-powered capture form
-│   ├── brain-query.tsx       # Conversational AI chatbot
+│   ├── file-upload-modal.tsx # Document upload with drag & drop
+│   ├── graph-view.tsx        # React Flow knowledge graph
+│   ├── command-palette.tsx   # cmdk command palette (Ctrl+K)
 │   ├── note-card.tsx         # Individual item cards
 │   ├── detail-view.tsx       # Full item detail dialog
 │   ├── profile-popup.tsx     # User profile dropdown

@@ -48,7 +48,11 @@ export function NoteCard({ item, index, onDeleted, onClick }: NoteCardProps) {
       onHoverStart={() => setIsHovered(true)}
       onHoverEnd={() => setIsHovered(false)}
       onClick={onClick}
-      className="group relative p-6 bg-white rounded-2xl neo-border shadow-[4px_4px_0_#1a1a1a] cursor-pointer overflow-hidden"
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick?.(); } }}
+      role="article"
+      tabIndex={0}
+      aria-label={`${config.label}: ${item.title}${item.ai_category ? ` — ${item.ai_category}` : ""}`}
+      className="group relative p-6 bg-white rounded-2xl neo-border shadow-[4px_4px_0_#1a1a1a] cursor-pointer overflow-hidden focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2"
     >
       <div className="absolute top-0 left-0 right-0 h-1.5" style={{ background: config.accent }} />
 
@@ -57,6 +61,7 @@ export function NoteCard({ item, index, onDeleted, onClick }: NoteCardProps) {
         animate={{ opacity: isHovered ? 1 : 0, scale: isHovered ? 1 : 0.8 }}
         onClick={handleDelete}
         disabled={isDeleting}
+        aria-label={`Delete ${item.title}`}
         className="absolute top-4 right-4 w-8 h-8 rounded-lg border-2 border-(--border) bg-white flex items-center justify-center shadow-[2px_2px_0_#1a1a1a] hover:bg-red-100 hover:-translate-x-px hover:-translate-y-px hover:shadow-[3px_3px_0_#1a1a1a] transition-all duration-150 cursor-pointer z-10"
       >
         <Trash2 className="w-3.5 h-3.5 text-red-500" />

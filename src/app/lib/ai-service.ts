@@ -1,17 +1,11 @@
 import { GoogleGenerativeAI, type GenerativeModel } from "@google/generative-ai";
 import { DEFAULT_TAG_CATEGORIES } from "@/app/lib/types";
-import type { BrainItem } from "@/app/lib/types";
 
 // ─── Types ───────────────────────────────────────────────────
 export interface AIMetadata {
   summary: string;
   tags: string[];
   category: string;
-}
-
-export interface BrainQueryResult {
-  answer: string;
-  sources: BrainItem[];
 }
 
 // ─── Custom errors ───────────────────────────────────────────
@@ -169,30 +163,35 @@ export async function generateAIMetadata(
     const truncated =
       content.length > 3000 ? content.slice(0, 3000) + "..." : content;
 
-    const prompt = `Analyze this content and return a JSON object with exactly these 3 fields:
+    const prompt = `You are an expert content analyst. Analyze the following content and return a JSON object with EXACTLY these 3 fields:
 
 {
-  "summary": "A 2-3 sentence summary in YOUR OWN WORDS. Do NOT copy the title. Do NOT copy the first lines. Synthesize what this is about, the key takeaway, and why it matters.",
+  "summary": "A clear 2-3 sentence summary",
   "tags": ["tag1", "tag2", "tag3"],
   "category": "CategoryName"
 }
 
+SUMMARY RULES (MOST IMPORTANT — follow carefully):
+- Write 2-3 original sentences that explain the CORE IDEA and KEY TAKEAWAY
+- Do NOT copy/repeat the title verbatim
+- Do NOT copy the first sentence of the content
+- Synthesize and restate in your own words what the content is about and why it matters
+- If the content is about a concept, explain what the concept is
+- If the content is about a task/project, describe what needs to be done and the goal
+- Start with an action phrase like "Explores...", "Discusses...", "Describes...", "Outlines...", "Covers..."
+
 TAG RULES:
-- 3-5 lowercase hyphenated tags about specific topics (e.g. "machine-learning", "react-hooks")
-- NO generic tags like "idea", "content", "note", "learning", "information", "untagged"
+- Generate 3-5 specific lowercase hyphenated topic tags (e.g. "machine-learning", "react-hooks", "api-design")
+- Tags must describe the SPECIFIC topics discussed, not generic labels
+- NEVER use these generic tags: "idea", "content", "note", "learning", "information", "untagged", "general", "topic", "summary"
 
-CATEGORY — pick ONE from: ${ALL_CATEGORIES.join(", ")}
-- "Technology" = programming, software, AI/ML, tech tools
-- "Business" = entrepreneurship, marketing, strategy, finance
-- "Personal" = health, habits, self-improvement, journaling
-- "Creative" = design, writing, art, media
-- "Learning" = ONLY for courses, textbooks, academic material
-- "Work" = project management, meetings, tasks, deadlines
-
-SUMMARY RULES — CRITICAL:
-- Write as if explaining to someone who hasn't read the original
-- Must be different from the title and the opening lines
-- Capture the CORE INSIGHT, not just repeat what was said
+CATEGORY — pick exactly ONE from: ${ALL_CATEGORIES.join(", ")}
+- "Technology" = programming, software, AI/ML, tech tools, APIs, frameworks
+- "Business" = entrepreneurship, marketing, strategy, finance, growth
+- "Personal" = health, habits, self-improvement, journaling, lifestyle
+- "Creative" = design, writing, art, media, photography
+- "Learning" = courses, textbooks, academic material, tutorials
+- "Work" = project management, meetings, tasks, deadlines, collaboration
 
 ---
 Title: "${title}"
@@ -208,15 +207,11 @@ Return ONLY valid JSON. No markdown, no explanation.`;
       category?: string;
     }>(text);
 
-    // Validate summary
+    // Validate summary — only reject if truly empty or too short
     let summary = parsed.summary || "";
-    if (
-      summary.length < 15 ||
-      summary.toLowerCase().startsWith(title.toLowerCase().slice(0, 15)) ||
-      summary.trim() === content.slice(0, summary.length).trim()
-    ) {
-      // AI echoed the title/content — build a better fallback
-      summary = `This note discusses ${title.toLowerCase()}. ${content.slice(0, 100).replace(/\n/g, " ").trim()}...`;
+    if (summary.length < 10) {
+      // AI returned empty/garbage — build a better fallback
+      summary = buildOfflineSummary(title, content);
     }
 
     // Validate tags
@@ -259,43 +254,22 @@ Return ONLY valid JSON. No markdown, no explanation.`;
 }
 
 // ═══════════════════════════════════════════════════════════════
-// 2. BRAIN QUERY (conversational AI)
+// 2. EMBEDDING GENERATION (for vector search)
 // ═══════════════════════════════════════════════════════════════
-export async function queryBrainAI(
-  question: string,
-  items: BrainItem[]
-): Promise<{ answer: string; sourceIndices: number[] }> {
-  const model = getModel();
+export async function generateEmbedding(text: string): Promise<number[] | null> {
+  try {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey || apiKey === "your_gemini_api_key") return null;
 
-  const context = items
-    .slice(0, 25)
-    .map((item, i) => {
-      const body = item.content || item.ai_summary || "";
-      return `[${i + 1}] "${item.title}" (${item.type}): ${body.slice(0, 200)}`;
-    })
-    .join("\n");
-
-  const prompt = `You are a helpful assistant for a personal knowledge base called "Second Brain".
-Answer the question based ONLY on these saved entries:
-
-${context}
-
-Question: "${question}"
-
-Rules: Be concise (2-4 sentences). Cite entries by index like [1], [2]. If nothing is relevant, say so honestly.`;
-
-  const text = await safeGenerate(model, prompt);
-
-  const indexMatches = text.match(/\[(\d+)\]/g);
-  const sourceIndices = indexMatches
-    ? [
-        ...new Set(
-          indexMatches.map((m) => parseInt(m.replace(/[\[\]]/g, "")) - 1)
-        ),
-      ].filter((i) => i >= 0 && i < items.length)
-    : [];
-
-  return { answer: text, sourceIndices };
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: "text-embedding-004" });
+    const truncated = text.length > 2000 ? text.slice(0, 2000) : text;
+    const result = await model.embedContent(truncated);
+    return result.embedding.values;
+  } catch (error) {
+    console.error("[AI] Embedding generation failed:", error);
+    return null;
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════

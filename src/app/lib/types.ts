@@ -10,6 +10,10 @@ export interface BrainItem {
   ai_category: string | null;
   created_at: string;
   updated_at: string;
+  file_name?: string | null;
+  file_type?: string | null;
+  file_size?: number | null;
+  embedding?: number[] | null;
 }
 
 export interface UserProfile {
@@ -39,10 +43,4 @@ export interface TagCategory {
   name: string;
   color: string;
   tags: string[];
-}
-
-export interface ConversationMessage {
-  role: "user" | "assistant";
-  content: string;
-  sources?: BrainItem[];
 }
