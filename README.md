@@ -2,6 +2,8 @@
 
 > **Capture ideas instantly. Let AI organize them for you.**
 
+ **Check it out here:** (https://second-brain-notes-ai.vercel.app/)
+
 Second Brain is a modern, AI-powered personal knowledge management system built with **Next.js 16**, **Supabase**, and **Google Gemini AI**. It features a distinctive **neobrutalist design**, automatic AI-generated summaries/tags/categories, and a public API + embeddable widget.
 
 ![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
@@ -326,26 +328,6 @@ Second Brain uses a **neobrutalist** design language:
 
 ---
 
-## 📦 Deployment
-
-### Vercel (Recommended)
-
-1. Push to GitHub
-2. Import in [vercel.com](https://vercel.com)
-3. Add environment variables in project settings
-4. Deploy — done!
-
-### Self-Hosted
-
-```bash
-npm run build
-npm start
-```
-
-Set environment variables in your hosting platform (Railway, Fly.io, Docker, etc.).
-
----
-
 ## 📖 Documentation
 
 See [`docs.md`](docs.md) for detailed architecture documentation covering:
@@ -367,11 +349,6 @@ See [`docs.md`](docs.md) for detailed architecture documentation covering:
 
 ---
 
-## 📝 License
-
-This project is open-source. See [LICENSE](LICENSE) for details.
-
----
 
 <p align="center">
   Made with ❤️ by <a href="https://revanthm.vercel.app/">Revanth Modalavalasa</a>
