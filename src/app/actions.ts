@@ -3,7 +3,7 @@
 import { createServerSupabase } from "@/app/lib/supabase-server";
 import { revalidatePath } from "next/cache";
 import type { BrainItem, ItemType } from "@/app/lib/types";
-import { generateAIMetadata, generateEmbedding } from "@/app/lib/ai-service";
+import { generateAIMetadata } from "@/app/lib/ai-service";
 
 // ─── Fetch Items ─────────────────────────────────────────────
 export async function fetchBrainItems(
@@ -72,9 +72,6 @@ export async function createBrainItem(formData: FormData): Promise<{
   // Generate AI metadata — tags are FULLY automatic
   const aiMeta = await generateAIMetadata(title, content);
 
-  // Generate embedding for vector search
-  const embedding = await generateEmbedding(`${title} ${content}`);
-
   const insertData: Record<string, unknown> = {
     user_id: user.id,
     title,
@@ -85,25 +82,12 @@ export async function createBrainItem(formData: FormData): Promise<{
     ai_tags: aiMeta.tags,
     ai_category: aiMeta.category,
   };
-  if (embedding) {
-    insertData.embedding = JSON.stringify(embedding);
-  }
 
-  let { data, error } = await supabase
+  const { data, error } = await supabase
     .from("brain_items")
     .insert(insertData)
     .select()
     .single();
-
-  // Retry without embedding if the column doesn't exist yet
-  if (error && error.message.includes("column")) {
-    delete insertData.embedding;
-    ({ data, error } = await supabase
-      .from("brain_items")
-      .insert(insertData)
-      .select()
-      .single());
-  }
 
   if (error) {
     console.error("Error creating brain item:", error);
@@ -145,38 +129,6 @@ export async function signOut() {
   const supabase = await createServerSupabase();
   await supabase.auth.signOut();
   revalidatePath("/");
-}
-
-// ─── Vector Search ───────────────────────────────────────────
-export async function vectorSearch(
-  query: string
-): Promise<BrainItem[]> {
-  const supabase = await createServerSupabase();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return [];
-
-  const embedding = await generateEmbedding(query);
-  if (!embedding) {
-    // Fallback to text search if embedding fails
-    return fetchBrainItems(query);
-  }
-
-  const { data, error } = await supabase.rpc("match_brain_items", {
-    query_embedding: JSON.stringify(embedding),
-    match_threshold: 0.5,
-    match_count: 20,
-    p_user_id: user.id,
-  });
-
-  if (error) {
-    console.error("Vector search failed, falling back to text search:", error);
-    return fetchBrainItems(query);
-  }
-
-  return (data ?? []) as BrainItem[];
 }
 
 // ─── Update Item ─────────────────────────────────────────────
@@ -222,9 +174,9 @@ export async function uploadFile(formData: FormData): Promise<{
   const file = formData.get("file") as File;
   if (!file) return { success: false, error: "No file provided" };
 
-  const maxSize = 5 * 1024 * 1024; // 5MB
+  const maxSize = 10 * 1024 * 1024; // 10MB
   if (file.size > maxSize) {
-    return { success: false, error: "File must be under 5MB" };
+    return { success: false, error: "File must be under 10MB" };
   }
 
   let content: string;
@@ -233,15 +185,16 @@ export async function uploadFile(formData: FormData): Promise<{
 
   try {
     if (fileType === "application/pdf") {
-      // PDF: read raw text (basic extraction)
-      const buffer = await file.arrayBuffer();
-      const text = new TextDecoder("utf-8", { fatal: false }).decode(buffer);
-      // Extract readable text from PDF (basic approach)
-      const cleanText = text
-        .replace(/[^\x20-\x7E\n\r\t]/g, " ")
-        .replace(/\s{3,}/g, "\n")
-        .trim();
-      content = cleanText.slice(0, 10000) || `Uploaded file: ${fileName}`;
+      // PDF: dynamic import to avoid build-time evaluation issues with Turbopack
+      const { PDFParse } = await import("pdf-parse");
+      const arrayBuf = await file.arrayBuffer();
+      const uint8 = new Uint8Array(arrayBuf);
+      const parser = new PDFParse({ data: uint8 });
+      const result = await parser.getText();
+      content = result.text.trim();
+      if (!content) {
+        content = `[PDF: ${fileName}] (No text could be extracted. It might be an image-only PDF.)`;
+      }
     } else if (
       fileType.startsWith("text/") ||
       fileType === "application/json" ||
@@ -254,20 +207,21 @@ export async function uploadFile(formData: FormData): Promise<{
     } else {
       content = `Uploaded file: ${fileName} (${fileType}, ${(file.size / 1024).toFixed(1)}KB)`;
     }
-  } catch {
-    content = `Uploaded file: ${fileName}`;
+  } catch (err) {
+    console.error("File processing error:", err);
+    content = `[File Upload Error] Could not process ${fileName}.`;
   }
 
-  // Truncate very large files
-  if (content.length > 10000) {
-    content = content.slice(0, 10000) + "\n\n[... truncated]";
+  // Truncate very large files but keep enough context for AI (approx 30k chars)
+  if (content.length > 30000) {
+    content = content.slice(0, 30000) + "\n\n[... truncated file content]";
   }
 
   const title = fileName.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
   const type: ItemType = fileType === "application/pdf" || fileType.startsWith("text/") ? "note" : "link";
 
+  // Generate AI metadata with better summary focus
   const aiMeta = await generateAIMetadata(title, content);
-  const embedding = await generateEmbedding(`${title} ${content}`);
 
   const insertData: Record<string, unknown> = {
     user_id: user.id,
@@ -279,25 +233,12 @@ export async function uploadFile(formData: FormData): Promise<{
     ai_tags: [...aiMeta.tags, "uploaded"],
     ai_category: aiMeta.category,
   };
-  if (embedding) {
-    insertData.embedding = JSON.stringify(embedding);
-  }
 
-  let { data, error } = await supabase
+  const { data, error } = await supabase
     .from("brain_items")
     .insert(insertData)
     .select()
     .single();
-
-  // Retry without embedding if the column doesn't exist yet
-  if (error && error.message.includes("column")) {
-    delete insertData.embedding;
-    ({ data, error } = await supabase
-      .from("brain_items")
-      .insert(insertData)
-      .select()
-      .single());
-  }
 
   if (error) {
     console.error("Error uploading file:", error);
@@ -306,54 +247,4 @@ export async function uploadFile(formData: FormData): Promise<{
 
   revalidatePath("/");
   return { success: true, item: data as BrainItem };
-}
-
-// ─── Fetch Related Items (for graph) ─────────────────────────
-export async function fetchRelatedItems(): Promise<{
-  items: BrainItem[];
-  edges: { source: string; target: string; label: string }[];
-}> {
-  const items = await fetchBrainItems();
-  if (items.length === 0) return { items: [], edges: [] };
-
-  const edges: { source: string; target: string; label: string }[] = [];
-
-  // Build edges based on shared tags
-  for (let i = 0; i < items.length; i++) {
-    const tagsI = new Set([...items[i].tags, ...items[i].ai_tags]);
-    for (let j = i + 1; j < items.length; j++) {
-      const tagsJ = new Set([...items[j].tags, ...items[j].ai_tags]);
-      const shared = [...tagsI].filter((t) => tagsJ.has(t));
-      if (shared.length > 0) {
-        edges.push({
-          source: items[i].id,
-          target: items[j].id,
-          label: shared.slice(0, 2).join(", "),
-        });
-      }
-    }
-  }
-
-  // Also connect items with same category
-  for (let i = 0; i < items.length; i++) {
-    for (let j = i + 1; j < items.length; j++) {
-      if (
-        items[i].ai_category &&
-        items[i].ai_category === items[j].ai_category &&
-        !edges.some(
-          (e) =>
-            (e.source === items[i].id && e.target === items[j].id) ||
-            (e.source === items[j].id && e.target === items[i].id)
-        )
-      ) {
-        edges.push({
-          source: items[i].id,
-          target: items[j].id,
-          label: items[i].ai_category!,
-        });
-      }
-    }
-  }
-
-  return { items, edges };
 }

@@ -5,8 +5,8 @@ import { Command } from "cmdk";
 import { fetchBrainItems } from "@/app/actions";
 import type { BrainItem } from "@/app/lib/types";
 import {
-  Search, Plus, Network, Upload, FileText, Link2, Lightbulb, X,
-  LogOut,
+  Search, Plus, Upload, FileText, Link2, Lightbulb, X,
+  LogOut, BookOpen, HelpCircle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -15,19 +15,17 @@ interface CommandPaletteProps {
   onOpenChange: (open: boolean) => void;
   onCapture: () => void;
   onUpload: () => void;
-  onGraph: () => void;
   onViewItem: (item: BrainItem) => void;
   onSignOut: () => void;
 }
 
-const typeIcons = { note: FileText, link: Link2, insight: Lightbulb };
+const typeIcons: Record<string, typeof FileText> = { note: FileText, link: Link2, insight: Lightbulb, article: BookOpen };
 
 export function CommandPalette({
   open,
   onOpenChange,
   onCapture,
   onUpload,
-  onGraph,
   onViewItem,
   onSignOut,
 }: CommandPaletteProps) {
@@ -174,21 +172,6 @@ export function CommandPalette({
                     </Command.Item>
 
                     <Command.Item
-                      onSelect={() => runAction(onGraph)}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold cursor-pointer transition-all hover:bg-neo-cyan/10 data-selected:bg-neo-cyan/10 data-selected:text-neo-cyan"
-                      value="knowledge graph visualization"
-                    >
-                      <div className="w-8 h-8 bg-neo-cyan/10 rounded-lg flex items-center justify-center border-2 border-neo-cyan/30">
-                        <Network className="w-4 h-4 text-neo-cyan" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-bold">Knowledge Graph</p>
-                        <p className="text-xs text-(--fg-muted) font-medium">Visualize connections between notes</p>
-                      </div>
-                      <kbd className="text-[10px] font-black text-(--fg-muted) bg-background border-2 border-(--border) rounded-lg px-2 py-0.5 shadow-[1px_1px_0_#1a1a1a]">G</kbd>
-                    </Command.Item>
-
-                    <Command.Item
                       onSelect={() => runAction(onSignOut)}
                       className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold cursor-pointer transition-all hover:bg-red-50 data-selected:bg-red-50 data-selected:text-red-600"
                       value="sign out logout"
@@ -208,7 +191,7 @@ export function CommandPalette({
                 {results.length > 0 && (
                   <Command.Group heading="Notes" className="px-2 py-1">
                     {results.map((item) => {
-                      const Icon = typeIcons[item.type] || FileText;
+                      const Icon = typeIcons[item.type] || HelpCircle;
                       return (
                         <Command.Item
                           key={item.id}

@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ITEM_TYPES } from "@/app/lib/types";
-import { Loader2, Sparkles, Check, Zap, Tag, FolderOpen } from "lucide-react";
+import { Loader2, Sparkles, Check, Zap, Tag, FolderOpen, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface CaptureModalProps {
@@ -21,25 +21,41 @@ interface CaptureModalProps {
 export function CaptureModal({ open, onOpenChange, onCreated }: CaptureModalProps) {
   const [loading, setLoading] = useState(false);
   const [type, setType] = useState("note");
+  const [customType, setCustomType] = useState("");
   const [aiResult, setAiResult] = useState<{ summary: string; tags: string[]; category: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
     setAiResult(null);
-    const formData = new FormData(e.currentTarget);
-    formData.set("type", type);
-    const result = await createBrainItem(formData);
-    if (result.success && result.item) {
-      setAiResult({ summary: result.item.ai_summary || "", tags: result.item.ai_tags || [], category: result.item.ai_category || "Learning" });
-      setTimeout(() => { onOpenChange(false); setAiResult(null); onCreated(); }, 3000);
+    setError(null);
+
+    try {
+      const formData = new FormData(e.currentTarget);
+      const finalType = type === "__custom" ? (customType.trim().toLowerCase() || "other") : type;
+      formData.set("type", finalType);
+      const result = await createBrainItem(formData);
+      if (result.success && result.item) {
+        setAiResult({ summary: result.item.ai_summary || "", tags: result.item.ai_tags || [], category: result.item.ai_category || "Learning" });
+        setTimeout(() => { onOpenChange(false); setAiResult(null); setError(null); onCreated(); }, 3000);
+      } else {
+        setError(result.error || "Failed to save. Please try again.");
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.includes("Body exceeded") || message.includes("body size")) {
+        setError("Content is too large. Please shorten your note and try again.");
+      } else {
+        setError(message || "An unexpected error occurred. Please try again.");
+      }
     }
     setLoading(false);
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-170">
+      <DialogContent className="sm:max-w-170 mx-4 sm:mx-auto px-6 sm:px-10">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
             <div className="w-10 h-10 bg-accent neo-border rounded-xl shadow-[3px_3px_0_#1a1a1a] flex items-center justify-center">
@@ -88,10 +104,22 @@ export function CaptureModal({ open, onOpenChange, onCreated }: CaptureModalProp
               </div>
               <div className="space-y-2">
                 <Label>Type</Label>
-                <Select value={type} onValueChange={setType}>
+                <Select value={type} onValueChange={(v) => { setType(v); if (v !== "__custom") setCustomType(""); }}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{ITEM_TYPES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
+                  <SelectContent>
+                    {ITEM_TYPES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                    <SelectItem value="__custom">Other (custom)...</SelectItem>
+                  </SelectContent>
                 </Select>
+                {type === "__custom" && (
+                  <Input
+                    value={customType}
+                    onChange={(e) => setCustomType(e.target.value)}
+                    placeholder="Enter custom type (e.g. bookmark, recipe, quote...)"
+                    className="mt-2"
+                    autoFocus
+                  />
+                )}
               </div>
               <div className="flex items-center gap-2 text-xs font-bold text-(--fg-muted) bg-accent/5 rounded-xl px-4 py-3 border-2 border-accent/20">
                 <Sparkles className="w-4 h-4 text-accent shrink-0" />
@@ -103,6 +131,17 @@ export function CaptureModal({ open, onOpenChange, onCreated }: CaptureModalProp
                   {loading ? <><Loader2 className="w-4 h-4 animate-spin" />Analyzing...</> : <><Sparkles className="w-4 h-4" />Capture</>}
                 </Button>
               </div>
+
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex items-start gap-2 text-sm font-bold text-red-600 bg-red-50 border-2 border-red-200 rounded-xl px-4 py-3"
+                >
+                  <X className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>{error}</span>
+                </motion.div>
+              )}
             </motion.form>
           )}
         </AnimatePresence>

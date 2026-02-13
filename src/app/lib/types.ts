@@ -3,7 +3,7 @@ export interface BrainItem {
   user_id: string;
   title: string;
   content: string;
-  type: "note" | "link" | "insight";
+  type: string;
   tags: string[];
   ai_summary: string | null;
   ai_tags: string[];
@@ -21,12 +21,13 @@ export interface UserProfile {
   email: string;
 }
 
-export type ItemType = "note" | "link" | "insight";
+export type ItemType = "note" | "link" | "insight" | "article" | string;
 
-export const ITEM_TYPES: { value: ItemType; label: string }[] = [
+export const ITEM_TYPES: { value: string; label: string }[] = [
   { value: "note", label: "Note" },
-  { value: "link", label: "Link" },
+  { value: "article", label: "Article" },
   { value: "insight", label: "Insight" },
+  { value: "link", label: "Link" },
 ];
 
 // ─── Tag Categories ─────────────────────────────────

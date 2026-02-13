@@ -22,7 +22,20 @@ export function SmoothScrollProvider({ children }: { children: ReactNode }) {
 
     requestAnimationFrame(raf);
 
+    // Pause Lenis when a dialog/modal is open so native scrolling works inside it
+    const observer = new MutationObserver(() => {
+      const hasDialog = document.querySelector("[role='dialog'], [data-radix-dialog-content]");
+      if (hasDialog) {
+        lenis.stop();
+      } else {
+        lenis.start();
+      }
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+
     return () => {
+      observer.disconnect();
       lenis.destroy();
     };
   }, []);

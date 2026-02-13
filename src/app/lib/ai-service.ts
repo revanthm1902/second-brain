@@ -160,8 +160,9 @@ export async function generateAIMetadata(
 ): Promise<AIMetadata> {
   try {
     const model = getModel();
+    // Keep more context (up to 25k chars) to ensure full document summarization
     const truncated =
-      content.length > 3000 ? content.slice(0, 3000) + "..." : content;
+      content.length > 25000 ? content.slice(0, 25000) + "\n[...remaining content truncated...]" : content;
 
     const prompt = `You are an expert content analyst. Analyze the following content and return a JSON object with EXACTLY these 3 fields:
 
@@ -171,14 +172,12 @@ export async function generateAIMetadata(
   "category": "CategoryName"
 }
 
-SUMMARY RULES (MOST IMPORTANT — follow carefully):
-- Write 2-3 original sentences that explain the CORE IDEA and KEY TAKEAWAY
-- Do NOT copy/repeat the title verbatim
-- Do NOT copy the first sentence of the content
-- Synthesize and restate in your own words what the content is about and why it matters
-- If the content is about a concept, explain what the concept is
-- If the content is about a task/project, describe what needs to be done and the goal
-- Start with an action phrase like "Explores...", "Discusses...", "Describes...", "Outlines...", "Covers..."
+SUMMARY RULES (CRITICAL):
+1. **scope**: Use the ENTIRE provided text. Do NOT stop after the first few lines.
+2. **synthesis**: Identify the core argument or central theme. Extrapolate key points from the middle and end of the text.
+3. **style**: Write a cohesive 2-3 detailed sentences. Start with "Analysis of...", "A detailed look at...", or "This document outlines...".
+4. **forbidden**: Do NOT just copy the first paragraph. Do NOT use "The text discusses..." generic filler.
+5. **uploaded files**: If the content appears to be code or data (JSON, CSV), summarize the structure and purpose (e.g., "A JSON dataset containing 50 user records with email and ID fields").
 
 TAG RULES:
 - Generate 3-5 specific lowercase hyphenated topic tags (e.g. "machine-learning", "react-hooks", "api-design")
@@ -254,56 +253,47 @@ Return ONLY valid JSON. No markdown, no explanation.`;
 }
 
 // ═══════════════════════════════════════════════════════════════
-// 2. EMBEDDING GENERATION (for vector search)
-// ═══════════════════════════════════════════════════════════════
-export async function generateEmbedding(text: string): Promise<number[] | null> {
-  try {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey || apiKey === "your_gemini_api_key") return null;
-
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "text-embedding-004" });
-    const truncated = text.length > 2000 ? text.slice(0, 2000) : text;
-    const result = await model.embedContent(truncated);
-    return result.embedding.values;
-  } catch (error) {
-    console.error("[AI] Embedding generation failed:", error);
-    return null;
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════
-// 3. OFFLINE FALLBACKS (used when API is down / quota exceeded)
+// 2. OFFLINE FALLBACKS (used when API is down / quota exceeded)
 // ═══════════════════════════════════════════════════════════════
 
-/** Build a useful summary without AI */
+/** Build a useful summary without AI — extracts key points, not just the first paragraph */
 function buildOfflineSummary(title: string, content: string): string {
-  // Extract meaningful sentences from the content
+  // Split into sentences
   const sentences = content
     .replace(/\n+/g, " ")
     .split(/[.!?]+/)
     .map((s) => s.trim())
     .filter((s) => s.length > 20 && s.length < 200);
 
-  if (sentences.length >= 2) {
-    // Pick 2 sentences that aren't just the title
-    const useful = sentences.filter(
-      (s) => !s.toLowerCase().startsWith(title.toLowerCase().slice(0, 15))
-    );
-    if (useful.length >= 2) {
-      return useful[0] + ". " + useful[1] + ".";
-    }
-    if (useful.length === 1) {
-      return useful[0] + ".";
-    }
+  if (sentences.length === 0) {
+    const clean = content.replace(/\n+/g, " ").trim();
+    return clean.length > 150 ? clean.slice(0, 150).replace(/\s\S*$/, "") + "..." : clean || title;
   }
 
-  // Last resort: truncate content intelligently
-  const clean = content.replace(/\n+/g, " ").trim();
-  if (clean.length > 150) {
-    return clean.slice(0, 150).replace(/\s\S*$/, "") + "...";
-  }
-  return clean || title;
+  // Score sentences by importance: longer ones with keywords rank higher
+  const importantKeywords = /\b(key|important|main|essential|critical|conclusion|result|therefore|however|significantly|notably|ultimately|takeaway|recommend|suggest|highlight|summary)\b/i;
+  const titleWords = title.toLowerCase().split(/\s+/).filter((w) => w.length > 3);
+
+  const scored = sentences.map((s) => {
+    let score = 0;
+    if (importantKeywords.test(s)) score += 3;
+    // Sentences mentioning title concepts are relevant
+    const lower = s.toLowerCase();
+    titleWords.forEach((w) => { if (lower.includes(w)) score += 1; });
+    // Prefer sentences from the middle/end (not just beginning)
+    const idx = sentences.indexOf(s);
+    if (idx > 0) score += 1; // not the first sentence
+    if (idx >= sentences.length * 0.5) score += 1; // from latter half
+    // Longer sentences tend to carry more info
+    if (s.length > 60) score += 1;
+    return { sentence: s, score };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+
+  // Pick top 2 most important sentences
+  const top = scored.slice(0, 2).map((s) => s.sentence);
+  return top.join(". ") + ".";
 }
 
 /** Infer tags from content using keyword extraction */

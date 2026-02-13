@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useTransition } from "react";
-import { fetchBrainItems, vectorSearch, signOut } from "@/app/actions";
+import { fetchBrainItems, signOut } from "@/app/actions";
 import type { BrainItem } from "@/app/lib/types";
 import { DEFAULT_TAG_CATEGORIES } from "@/app/lib/types";
 import { ProfilePopup } from "@/components/profile-popup";
@@ -10,11 +10,10 @@ import { NoteCard } from "@/components/note-card";
 import { CaptureModal } from "@/components/capture-modal";
 import { DetailView } from "@/components/detail-view";
 import { FileUploadModal } from "@/components/file-upload-modal";
-import { GraphView } from "@/components/graph-view";
 import { CommandPalette } from "@/components/command-palette";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Plus, Brain, Sparkles, User, Zap, Tag, X, Upload, Network, Keyboard } from "lucide-react";
+import { Plus, Brain, Sparkles, User, Zap, Tag, X, Upload, Keyboard } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface DashboardProps {
@@ -30,32 +29,24 @@ export function Dashboard({ initialItems, userEmail }: DashboardProps) {
   const [captureOpen, setCaptureOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
-  const [graphOpen, setGraphOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [selectedItem, setSelectedItem] = useState<BrainItem | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
-  const [useSemanticSearch, setUseSemanticSearch] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   const loadItems = useCallback(async () => {
     setIsLoading(true);
-    let data: BrainItem[];
-
-    if (useSemanticSearch && search && search.trim()) {
-      data = await vectorSearch(search);
-    } else {
-      data = await fetchBrainItems(
-        search || undefined,
-        activeFilter !== "all" ? activeFilter : undefined,
-        activeTag || undefined
-      );
-    }
+    const data = await fetchBrainItems(
+      search || undefined,
+      activeFilter !== "all" ? activeFilter : undefined,
+      activeTag || undefined
+    );
 
     setItems(data);
     setIsLoading(false);
-  }, [search, activeFilter, activeTag, useSemanticSearch]);
+  }, [search, activeFilter, activeTag]);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -77,10 +68,6 @@ export function Dashboard({ initialItems, userEmail }: DashboardProps) {
       if (e.key === "u" || e.key === "U") {
         e.preventDefault();
         setUploadOpen(true);
-      }
-      if (e.key === "g" || e.key === "G") {
-        e.preventDefault();
-        setGraphOpen(true);
       }
       if (e.key === "Escape") {
         setShortcutsOpen(false);
@@ -143,19 +130,6 @@ export function Dashboard({ initialItems, userEmail }: DashboardProps) {
 
             <SearchBar value={search} onChange={setSearch} />
 
-            {/* Semantic search toggle */}
-            <button
-              onClick={() => setUseSemanticSearch(!useSemanticSearch)}
-              title={useSemanticSearch ? "Semantic search (AI)" : "Text search"}
-              aria-label={useSemanticSearch ? "Switch to text search" : "Switch to semantic search"}
-              aria-pressed={useSemanticSearch}
-              className={`shrink-0 w-10 h-10 rounded-xl neo-border shadow-[3px_3px_0_#1a1a1a] flex items-center justify-center hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[5px_5px_0_#1a1a1a] active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_#1a1a1a] transition-all duration-150 cursor-pointer ${
-                useSemanticSearch ? "bg-accent text-white" : "bg-white text-(--fg-muted)"
-              }`}
-            >
-              <Sparkles className="w-4 h-4" />
-            </button>
-
             <Button onClick={() => setCaptureOpen(true)} className="shrink-0 h-12 px-6 rounded-xl" aria-label="Capture new idea">
               <Plus className="w-5 h-5" strokeWidth={3} />
               <span className="hidden sm:inline">Capture</span>
@@ -168,15 +142,6 @@ export function Dashboard({ initialItems, userEmail }: DashboardProps) {
               className="shrink-0 w-10 h-10 rounded-xl bg-neo-green neo-border shadow-[3px_3px_0_#1a1a1a] items-center justify-center hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[5px_5px_0_#1a1a1a] active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_#1a1a1a] transition-all duration-150 cursor-pointer hidden sm:flex"
             >
               <Upload className="w-4 h-4 text-white" />
-            </button>
-
-            <button
-              onClick={() => setGraphOpen(true)}
-              title="Knowledge graph"
-              aria-label="Open knowledge graph"
-              className="shrink-0 w-10 h-10 rounded-xl bg-neo-cyan neo-border shadow-[3px_3px_0_#1a1a1a] items-center justify-center hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[5px_5px_0_#1a1a1a] active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0_#1a1a1a] transition-all duration-150 cursor-pointer hidden sm:flex"
-            >
-              <Network className="w-4 h-4 text-white" />
             </button>
 
             {/* Shortcuts button */}
@@ -205,7 +170,6 @@ export function Dashboard({ initialItems, userEmail }: DashboardProps) {
                         { keys: "Ctrl + K", label: "Command palette" },
                         { keys: "N", label: "New capture" },
                         { keys: "U", label: "Upload file" },
-                        { keys: "G", label: "Knowledge graph" },
                         { keys: "Esc", label: "Close dialog" },
                       ].map((s) => (
                         <div key={s.keys} className="flex items-center justify-between">
@@ -232,7 +196,7 @@ export function Dashboard({ initialItems, userEmail }: DashboardProps) {
 
         {/* Main */}
         <main className="max-w-7xl mx-auto px-5 py-8" aria-label="Brain items">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="flex items-center justify-between mb-6">
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-3xl font-black text-foreground tracking-tight">
                 {filterLabel}
@@ -240,12 +204,11 @@ export function Dashboard({ initialItems, userEmail }: DashboardProps) {
               </h2>
               <p className="text-sm font-medium text-(--fg-muted) mt-1">
                 {items.length} {items.length === 1 ? "item" : "items"} {search ? `matching "${search}"` : "in your brain"}
-                {useSemanticSearch && search && " (semantic)"}
               </p>
             </div>
 
             <div className="hidden md:flex items-center gap-2" role="tablist" aria-label="Filter items by type">
-              {["all", "note", "link", "insight"].map((f) => (
+              {["all", "note", "article", "insight", "link"].map((f) => (
                 <button
                   key={f}
                   onClick={() => setActiveFilter(f)}
@@ -266,7 +229,7 @@ export function Dashboard({ initialItems, userEmail }: DashboardProps) {
 
           {/* Tags */}
           {(tagsByCategory.length > 0 || uncategorizedTags.length > 0) && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mb-6" role="region" aria-label="Tag filters">
+            <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05, duration: 0.2 }} className="mb-6" role="region" aria-label="Tag filters">
               <div className="flex items-center gap-2 mb-3">
                 <Tag className="w-4 h-4 text-(--fg-muted)" aria-hidden="true" />
                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-(--fg-muted)">Filter by tag</span>
@@ -316,13 +279,13 @@ export function Dashboard({ initialItems, userEmail }: DashboardProps) {
           )}
 
           {/* Grid */}
-          <AnimatePresence mode="wait">
+          <AnimatePresence mode="popLayout">
             {showSkeleton ? (
-              <motion.div key="skeleton" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6" role="status" aria-label="Loading items">
+              <motion.div key="skeleton" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6" role="status" aria-label="Loading items">
                 {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
               </motion.div>
             ) : items.length === 0 ? (
-              <motion.div key="empty" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex flex-col items-center justify-center py-28 text-center">
+              <motion.div key="empty" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="flex flex-col items-center justify-center py-28 text-center">
                 <motion.div animate={{ y: [0, -8, 0] }} transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }} className="w-24 h-24 bg-accent/10 neo-border rounded-3xl flex items-center justify-center mb-6 shadow-[4px_4px_0_#1a1a1a]" aria-hidden="true">
                   <Brain className="w-12 h-12 text-accent" />
                 </motion.div>
@@ -346,7 +309,7 @@ export function Dashboard({ initialItems, userEmail }: DashboardProps) {
                 )}
               </motion.div>
             ) : (
-              <motion.div key="grid" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6" role="list" aria-label="Brain items list">
+              <motion.div key="grid" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6" role="list" aria-label="Brain items list">
                 <AnimatePresence>
                   {items.map((item, index) => (
                     <div key={item.id} role="listitem">
@@ -437,13 +400,11 @@ export function Dashboard({ initialItems, userEmail }: DashboardProps) {
       <DetailView item={selectedItem} open={detailOpen} onOpenChange={setDetailOpen} onDeleted={loadItems} />
       <CaptureModal open={captureOpen} onOpenChange={setCaptureOpen} onCreated={loadItems} />
       <FileUploadModal open={uploadOpen} onOpenChange={setUploadOpen} onCreated={loadItems} />
-      <GraphView open={graphOpen} onOpenChange={setGraphOpen} onViewItem={handleViewItem} />
       <CommandPalette
         open={commandOpen}
         onOpenChange={setCommandOpen}
         onCapture={() => setCaptureOpen(true)}
         onUpload={() => setUploadOpen(true)}
-        onGraph={() => setGraphOpen(true)}
         onViewItem={handleViewItem}
         onSignOut={handleSignOut}
       />

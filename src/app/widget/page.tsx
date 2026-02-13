@@ -9,6 +9,7 @@ import {
   Link2,
   Lightbulb,
   Sparkles,
+  BookOpen,
 } from "lucide-react";
 
 interface WidgetItem {
@@ -71,6 +72,7 @@ export default function WidgetPage() {
     note: FileText,
     link: Link2,
     insight: Lightbulb,
+    article: BookOpen,
   };
 
   if (!configured) {

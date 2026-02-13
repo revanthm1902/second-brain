@@ -2,16 +2,19 @@
 
 import type { BrainItem } from "@/app/lib/types";
 import { formatDate } from "@/app/lib/utils";
-import { FileText, Link2, Lightbulb, Trash2, Sparkles, FolderOpen, Tag } from "lucide-react";
+import { FileText, Link2, Lightbulb, Trash2, Sparkles, FolderOpen, Tag, BookOpen, HelpCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import { deleteBrainItem } from "@/app/actions";
 import { useState } from "react";
 
-const typeConfig = {
+const typeConfig: Record<string, { icon: typeof FileText; label: string; color: string; accent: string }> = {
   note: { icon: FileText, label: "Note", color: "bg-blue-100 text-blue-800", accent: "#3b82f6" },
   link: { icon: Link2, label: "Link", color: "bg-green-100 text-green-800", accent: "#22c55e" },
   insight: { icon: Lightbulb, label: "Insight", color: "bg-yellow-100 text-yellow-800", accent: "#eab308" },
+  article: { icon: BookOpen, label: "Article", color: "bg-purple-100 text-purple-800", accent: "#a855f7" },
 };
+
+const defaultTypeConfig = { icon: HelpCircle, label: "Other", color: "bg-gray-100 text-gray-800", accent: "#6b7280" };
 
 interface NoteCardProps {
   item: BrainItem;
@@ -23,7 +26,7 @@ interface NoteCardProps {
 export function NoteCard({ item, index, onDeleted, onClick }: NoteCardProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
-  const config = typeConfig[item.type] || typeConfig.note;
+  const config = typeConfig[item.type] || { ...defaultTypeConfig, label: item.type.charAt(0).toUpperCase() + item.type.slice(1) };
   const Icon = config.icon;
   const allTags = [...item.tags, ...item.ai_tags.filter((t) => !item.tags.includes(t))];
 
@@ -39,11 +42,11 @@ export function NoteCard({ item, index, onDeleted, onClick }: NoteCardProps) {
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, y: 30, rotate: -1 }}
-      animate={{ opacity: 1, y: 0, rotate: 0 }}
-      exit={{ opacity: 0, scale: 0.9, rotate: 2 }}
-      transition={{ duration: 0.4, delay: index * 0.06, ease: [0.22, 1, 0.36, 1] }}
-      whileHover={{ translateX: -3, translateY: -3, boxShadow: "7px 7px 0 #1a1a1a" }}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ duration: 0.25, delay: Math.min(index * 0.04, 0.3), ease: [0.25, 1, 0.5, 1] }}
+      whileHover={{ translateX: -2, translateY: -2, boxShadow: "6px 6px 0 #1a1a1a" }}
       whileTap={{ translateX: 1, translateY: 1, boxShadow: "2px 2px 0 #1a1a1a" }}
       onHoverStart={() => setIsHovered(true)}
       onHoverEnd={() => setIsHovered(false)}

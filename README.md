@@ -1,85 +1,95 @@
-# Second Brain — AI Knowledge System
+# 🧠 Second Brain — AI-Powered Knowledge Management
 
-A premium AI-powered personal knowledge base built with **Next.js 16**, **Supabase**, and **Google Gemini AI**. Capture ideas, links, and insights — AI auto-summarizes, tags, and categorizes everything.
+> **Capture ideas instantly. Let AI organize them for you.**
 
-![Neobrutalism Design](https://img.shields.io/badge/Design-Neobrutalism-ff6b35?style=for-the-badge)
-![Next.js 16](https://img.shields.io/badge/Next.js-16-000?style=for-the-badge)
-![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?style=for-the-badge)
+Second Brain is a modern, AI-powered personal knowledge management system built with **Next.js 16**, **Supabase**, and **Google Gemini AI**. It features a distinctive **neobrutalist design**, automatic AI-generated summaries/tags/categories, and a public API + embeddable widget.
 
-## Features
+![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-38bdf8?logo=tailwindcss)
+![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ecf8e?logo=supabase)
+![Gemini AI](https://img.shields.io/badge/Gemini-2.0_Flash-4285f4?logo=google)
 
-- **AI-Powered Capture** — Drop any idea, link, or insight. Gemini AI generates a detailed summary, smart tags, and a category automatically.
-- **Semantic Vector Search** — Search your knowledge base using AI-powered semantic search with pgvector embeddings (Gemini text-embedding-004). Falls back to text search gracefully.
-- **Knowledge Graph** — Visualize relationships between your notes using React Flow. Nodes connect via shared tags and categories.
-- **File Upload** — Upload documents (.txt, .md, .csv, .json, .pdf) with automatic metadata extraction, AI summarization, and tagging.
-- **Command Palette** — Power-user keyboard shortcuts (`Ctrl+K` to open, `N` to capture, `U` to upload, `G` for graph). Search notes and run actions instantly.
-- **Smart Filtering** — Filter by type (notes, links, insights), by AI-generated tags, or search full-text across everything.
-- **Neobrutalism UI** — Bold borders, hard shadows, vibrant colors, ruled-paper login, and smooth Framer Motion animations.
-- **Accessibility** — Proper ARIA labels, keyboard navigation, focus indicators, and screen reader support throughout.
-- **Auth & Security** — Email/password authentication via Supabase Auth with SSR cookie sessions and proxy middleware.
-- **Embeddable Widget** — A standalone `/widget` page with browse mode for embedding your brain anywhere.
-- **Responsive** — Mobile-first design with fullscreen modals, floating FABs, and adaptive layouts.
+---
 
-## Tech Stack
+## ✨ Features
 
-| Layer | Technology |
-|-------|-----------|
-| Framework | Next.js 16 (App Router, Turbopack, Server Actions) |
-| Language | TypeScript 5 |
-| Styling | Tailwind CSS v4 + custom neobrutalism design system |
-| Animation | Framer Motion + Lenis smooth scroll |
-| Database | Supabase (PostgreSQL + pgvector + Auth + SSR) |
-| AI | Google Gemini 2.0 Flash (summarization) + text-embedding-004 (vectors) |
-| Graph | React Flow (knowledge graph visualization) |
-| Command Palette | cmdk (command menu) |
-| UI Primitives | Radix UI (Dialog, Select, Label) |
-| Components | Shadcn/UI-inspired with CVA variants |
+| Feature | Description |
+|---------|-------------|
+| **AI Auto-Tagging** | Gemini AI generates tags, categories, and summaries for every capture |
+| **Multiple Content Types** | Note, Article, Insight, Link, or custom types |
+| **File Upload** | Drag-and-drop support for `.txt`, `.md`, `.csv`, `.json`, `.pdf` |
+| **Smart Summarization** | AI extracts key points across the entire content — not just the first paragraph |
+| **Command Palette** | `Ctrl+K` for instant search and quick actions |
+| **Keyboard Shortcuts** | `N` (new capture), `U` (upload), `Esc` (close) |
+| **Public REST API** | JSON API at `/api/public/brain/query` with CORS support |
+| **Embeddable Widget** | Iframe-ready widget at `/widget?user_id=UUID` |
+| **Graceful Degradation** | Offline fallbacks when AI quota is exhausted |
+| **Neobrutalist UI** | Bold borders, chunky shadows, vibrant accents |
 
-## Getting Started
+---
+
+## 🚀 Quick Start
 
 ### Prerequisites
 
-- Node.js 18+
-- A [Supabase](https://supabase.com) project
-- A [Google AI Studio](https://aistudio.google.com) API key
+- **Node.js** ≥ 18.x
+- **npm** or **pnpm**
+- A **Supabase** project (free tier works)
+- A **Google Gemini API** key (free tier: 15 RPM)
 
 ### 1. Clone & Install
 
 ```bash
-git clone https://github.com/revanthm1902/second-brain.git
+git clone https://github.com/your-username/second-brain.git
 cd second-brain
 npm install
 ```
 
 ### 2. Environment Variables
 
-Create a `.env.local` file:
+Create a `.env.local` file in the project root:
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+# ─── Supabase ──────────────────────────────────
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+# ─── Google Gemini AI ──────────────────────────
 GEMINI_API_KEY=your_gemini_api_key
 ```
 
+<details>
+<summary><strong>📋 How to get these keys</strong></summary>
+
+#### Supabase
+1. Go to [supabase.com](https://supabase.com) → Create a new project
+2. Go to **Settings → API** → Copy the `URL` and `anon` key
+3. Run the SQL below in the **SQL Editor** to create the table
+
+#### Gemini API
+1. Go to [aistudio.google.com](https://aistudio.google.com/apikey)
+2. Click **"Create API Key"**
+3. Copy the key into your `.env.local`
+
+</details>
+
 ### 3. Database Setup
 
-Run this SQL in your Supabase SQL Editor:
+Run this SQL in your Supabase **SQL Editor**:
 
 ```sql
--- Enable pgvector extension for semantic search
-CREATE EXTENSION IF NOT EXISTS vector;
-
+-- Brain items table
 CREATE TABLE brain_items (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   title TEXT NOT NULL,
   content TEXT NOT NULL,
-  type TEXT NOT NULL DEFAULT 'note' CHECK (type IN ('note', 'link', 'insight')),
+  type TEXT DEFAULT 'note',
   tags TEXT[] DEFAULT '{}',
   ai_summary TEXT,
   ai_tags TEXT[] DEFAULT '{}',
   ai_category TEXT,
-  embedding VECTOR(768),
   file_name TEXT,
   file_type TEXT,
   file_size INTEGER,
@@ -87,145 +97,282 @@ CREATE TABLE brain_items (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Enable Row Level Security
 ALTER TABLE brain_items ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can manage own items"
-  ON brain_items FOR ALL
-  USING (auth.uid() = user_id);
+-- Users can only access their own items
+CREATE POLICY "Users can read own items"
+  ON brain_items FOR SELECT USING (auth.uid() = user_id);
 
-CREATE INDEX idx_brain_items_user ON brain_items(user_id);
+CREATE POLICY "Users can insert own items"
+  ON brain_items FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own items"
+  ON brain_items FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own items"
+  ON brain_items FOR DELETE USING (auth.uid() = user_id);
+
+-- Public read access for the widget/API (optional)
+CREATE POLICY "Public can read items"
+  ON brain_items FOR SELECT USING (true);
+
+-- Index for faster queries
+CREATE INDEX idx_brain_items_user_id ON brain_items(user_id);
 CREATE INDEX idx_brain_items_type ON brain_items(type);
-CREATE INDEX idx_brain_items_created ON brain_items(created_at DESC);
-CREATE INDEX idx_brain_items_embedding ON brain_items USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
-
--- Vector search function
-CREATE OR REPLACE FUNCTION match_brain_items(
-  query_embedding VECTOR(768),
-  match_threshold FLOAT,
-  match_count INT,
-  p_user_id UUID
-)
-RETURNS TABLE (
-  id UUID,
-  user_id UUID,
-  title TEXT,
-  content TEXT,
-  type TEXT,
-  tags TEXT[],
-  ai_summary TEXT,
-  ai_tags TEXT[],
-  ai_category TEXT,
-  file_name TEXT,
-  file_type TEXT,
-  file_size INTEGER,
-  created_at TIMESTAMPTZ,
-  updated_at TIMESTAMPTZ,
-  similarity FLOAT
-)
-LANGUAGE plpgsql
-AS $$
-BEGIN
-  RETURN QUERY
-  SELECT
-    bi.id,
-    bi.user_id,
-    bi.title,
-    bi.content,
-    bi.type,
-    bi.tags,
-    bi.ai_summary,
-    bi.ai_tags,
-    bi.ai_category,
-    bi.file_name,
-    bi.file_type,
-    bi.file_size,
-    bi.created_at,
-    bi.updated_at,
-    1 - (bi.embedding <=> query_embedding) AS similarity
-  FROM brain_items bi
-  WHERE bi.user_id = p_user_id
-    AND bi.embedding IS NOT NULL
-    AND 1 - (bi.embedding <=> query_embedding) > match_threshold
-  ORDER BY bi.embedding <=> query_embedding
-  LIMIT match_count;
-END;
-$$;
+CREATE INDEX idx_brain_items_created_at ON brain_items(created_at DESC);
 ```
 
-> **Note:** If you already have the `brain_items` table, run these ALTER statements instead:
->
-> ```sql
-> CREATE EXTENSION IF NOT EXISTS vector;
-> ALTER TABLE brain_items ADD COLUMN IF NOT EXISTS embedding VECTOR(768);
-> ALTER TABLE brain_items ADD COLUMN IF NOT EXISTS file_name TEXT;
-> ALTER TABLE brain_items ADD COLUMN IF NOT EXISTS file_type TEXT;
-> ALTER TABLE brain_items ADD COLUMN IF NOT EXISTS file_size INTEGER;
-> CREATE INDEX IF NOT EXISTS idx_brain_items_embedding ON brain_items USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
-> ```
-> Then create the `match_brain_items` function from the SQL above.
+### 4. Supabase Auth Setup
 
-### 4. Run Development Server
+1. In Supabase Dashboard → **Authentication → Providers**
+2. Enable **Email** provider (or Google/GitHub OAuth)
+3. Set the **Site URL** to `http://localhost:3000`
+4. Add `http://localhost:3000/auth/callback` to **Redirect URLs**
+
+### 5. Run the App
 
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) — sign up, and start capturing ideas.
+Open [http://localhost:3000](http://localhost:3000) — sign up, and start capturing!
 
-## Keyboard Shortcuts
+---
 
-| Shortcut | Action |
-|----------|--------|
-| `Ctrl+K` / `Cmd+K` | Open command palette |
-| `N` | Capture new idea |
-| `U` | Upload document |
-| `G` | Open knowledge graph |
-| `Esc` | Close dialogs |
-| `↑ ↓` | Navigate command palette |
-| `Enter` | Select item in command palette |
+## 🏗️ Architecture
 
-## Project Structure
+```
+┌──────────────────────────────────────────────────┐
+│              PRESENTATION LAYER                   │
+│  React 19 + Tailwind 4 + Framer Motion           │
+│  Components: Dashboard, Cards, Modals, Palette   │
+├──────────────────────────────────────────────────┤
+│              APPLICATION LAYER                    │
+│  Next.js 16 Server Actions (actions.ts)          │
+│  Auth middleware at the edge                      │
+├──────────────────────────────────────────────────┤
+│                 AI LAYER                          │
+│  Google Gemini 2.0 Flash (ai-service.ts)         │
+│  Summarization · Tagging · Categorization        │
+├──────────────────────────────────────────────────┤
+│                DATA LAYER                         │
+│  Supabase (PostgreSQL + Row Level Security)      │
+│  Auth via Supabase SSR                            │
+├──────────────────────────────────────────────────┤
+│            INFRASTRUCTURE LAYER                   │
+│  Vercel Edge Network · CDN-cached API            │
+└──────────────────────────────────────────────────┘
+```
+
+> Every layer is **independently swappable**. See [`docs.md`](docs.md) for detailed architecture documentation.
+
+### Project Structure
 
 ```
 src/
 ├── app/
-│   ├── page.tsx              # Dashboard (server component)
-│   ├── login/page.tsx        # Auth page (ruled-paper background)
-│   ├── widget/page.tsx       # Embeddable widget (browse mode)
-│   ├── actions.ts            # Server actions (CRUD, AI, vector search, file upload)
-│   ├── api/public/brain/     # Public API for widget
-│   └── lib/                  # Supabase clients, types, utils
-│       ├── ai-service.ts     # Gemini AI (summarization, tagging, embeddings)
-│       ├── types.ts          # TypeScript types
-│       └── ...
+│   ├── page.tsx                  # Main dashboard (Server Component)
+│   ├── actions.ts                # Server Actions (CRUD, file upload)
+│   ├── layout.tsx                # Root layout with smooth scroll
+│   ├── globals.css               # Neobrutalist theme & variables
+│   ├── api/public/brain/query/
+│   │   └── route.ts              # Public REST API endpoint
+│   ├── auth/callback/
+│   │   └── route.ts              # OAuth callback handler
+│   ├── lib/
+│   │   ├── ai-service.ts         # Gemini AI: summaries, tags, categories
+│   │   ├── supabase.ts           # Supabase browser client
+│   │   ├── supabase-server.ts    # Supabase server client
+│   │   ├── supabase-middleware.ts # Auth middleware
+│   │   ├── types.ts              # TypeScript interfaces
+│   │   └── utils.ts              # Helpers (cn, formatDate, truncate)
+│   ├── login/
+│   │   └── page.tsx              # Login page
+│   └── widget/
+│       ├── layout.tsx            # Widget layout (minimal)
+│       └── page.tsx              # Embeddable widget
 ├── components/
-│   ├── dashboard.tsx         # Main dashboard orchestrator
-│   ├── capture-modal.tsx     # AI-powered capture form
-│   ├── file-upload-modal.tsx # Document upload with drag & drop
-│   ├── graph-view.tsx        # React Flow knowledge graph
-│   ├── command-palette.tsx   # cmdk command palette (Ctrl+K)
-│   ├── note-card.tsx         # Individual item cards
-│   ├── detail-view.tsx       # Full item detail dialog
-│   ├── profile-popup.tsx     # User profile dropdown
-│   ├── search-bar.tsx        # Search with Ctrl+K shortcut
-│   ├── smooth-scroll.tsx     # Lenis scroll provider
-│   └── ui/                   # Reusable UI primitives
-└── proxy.ts                  # Auth middleware (Next.js 16 proxy)
+│   ├── capture-modal.tsx         # New capture dialog (with custom types)
+│   ├── command-palette.tsx       # Ctrl+K command palette
+│   ├── dashboard.tsx             # Main dashboard with filters
+│   ├── detail-view.tsx           # Item preview with edit/copy/delete
+│   ├── file-upload-modal.tsx     # Drag-and-drop file uploader
+│   ├── note-card.tsx             # Brain item card
+│   ├── profile-popup.tsx         # User profile dropdown
+│   ├── search-bar.tsx            # Search input
+│   ├── smooth-scroll.tsx         # Lenis smooth scroll (dialog-aware)
+│   └── ui/                       # Radix + Tailwind primitives
+│       ├── button.tsx
+│       ├── dialog.tsx
+│       ├── input.tsx
+│       ├── label.tsx
+│       ├── select.tsx
+│       ├── skeleton.tsx
+│       └── textarea.tsx
+└── proxy.ts                      # Middleware config
 ```
 
-## Scripts
+---
+
+## 🔌 API Reference
+
+### Public Query Endpoint
+
+```
+GET /api/public/brain/query
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `user_id` | `string` | — | Filter by user UUID |
+| `search` | `string` | — | Full-text search across title, content, summary |
+| `limit` | `number` | `10` | Max results (capped at 50) |
+
+**Example Response:**
+
+```json
+{
+  "count": 2,
+  "items": [
+    {
+      "id": "uuid",
+      "title": "React Server Components",
+      "type": "article",
+      "ai_summary": "Explores how RSC changes data fetching patterns...",
+      "ai_tags": ["react", "server-components", "web-development"],
+      "ai_category": "Technology",
+      "created_at": "2026-02-13T10:30:00Z"
+    }
+  ],
+  "timestamp": "2026-02-13T12:00:00Z"
+}
+```
+
+### Embeddable Widget
+
+```html
+<iframe
+  src="https://your-app.vercel.app/widget?user_id=YOUR_UUID"
+  width="400"
+  height="600"
+  style="border: none; border-radius: 16px;"
+></iframe>
+```
+
+---
+
+## 🎨 Design System
+
+Second Brain uses a **neobrutalist** design language:
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| `--accent` | `#ff6b35` | Primary actions, buttons, highlights |
+| `--border` | `#1a1a1a` | Thick borders (2.5px) |
+| `--shadow` | `#1a1a1a` | Offset drop shadows (4px) |
+| `--bg` | `#f0e6d3` | Warm paper background |
+| `--purple` | `#a855f7` | Categories, article type |
+| `--radius` | `12px` | Rounded corners |
+
+---
+
+## ⌨️ Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl + K` | Open command palette |
+| `N` | New capture |
+| `U` | Upload file |
+| `Esc` | Close dialog |
+
+---
+
+## 🛠️ Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Framework | Next.js 16 (App Router, Server Actions) |
+| Language | TypeScript 5 |
+| Styling | Tailwind CSS 4 |
+| Animation | Framer Motion |
+| UI Primitives | Radix UI (Dialog, Select, Label) |
+| Database | Supabase (PostgreSQL + Auth + RLS) |
+| AI | Google Gemini 2.0 Flash |
+| Smooth Scroll | Lenis |
+| Command Palette | cmdk |
+| Icons | Lucide React |
+
+---
+
+## 📄 Environment Variables Reference
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `NEXT_PUBLIC_SUPABASE_URL` | ✅ | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ | Supabase anonymous key |
+| `GEMINI_API_KEY` | ✅ | Google Gemini API key |
+
+---
+
+## 🧩 Key Design Decisions
+
+1. **Single AI Call** — Tags, summary, and category are generated in one prompt to save API quota
+2. **Offline Fallbacks** — Keyword extraction + pattern matching when AI is unavailable
+3. **Rate Limiting** — Client-side sliding window rate limiter prevents quota exhaustion
+4. **Server Actions** — No separate API layer; form submissions go directly to server functions
+5. **Lenis Dialog Awareness** — Smooth scroll auto-pauses when modals open, enabling native scroll in dialogs
+6. **Custom Types** — Users can define their own capture types beyond the built-in note/article/insight/link
+
+---
+
+## 📦 Deployment
+
+### Vercel (Recommended)
+
+1. Push to GitHub
+2. Import in [vercel.com](https://vercel.com)
+3. Add environment variables in project settings
+4. Deploy — done!
+
+### Self-Hosted
 
 ```bash
-npm run dev      # Start dev server (Turbopack)
-npm run build    # Production build
-npm run start    # Start production server
-npm run lint     # Run ESLint
+npm run build
+npm start
 ```
 
-## Deployment
+Set environment variables in your hosting platform (Railway, Fly.io, Docker, etc.).
 
-Deploy to [Vercel](https://vercel.com) with one click — just add your environment variables in the Vercel dashboard.
+---
 
-## License
+## 📖 Documentation
 
-MIT
+See [`docs.md`](docs.md) for detailed architecture documentation covering:
+
+- **Portable Architecture** — Swappable components at every layer
+- **Principles-Based UX** — 5 design principles for AI interactions
+- **Agent Thinking** — Autonomous AI pipeline for content enrichment
+- **Infrastructure Mindset** — API-first design with embeddable widgets
+
+---
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Commit changes: `git commit -m 'Add amazing feature'`
+4. Push: `git push origin feature/amazing-feature`
+5. Open a Pull Request
+
+---
+
+## 📝 License
+
+This project is open-source. See [LICENSE](LICENSE) for details.
+
+---
+
+<p align="center">
+  Made with ❤️ by <a href="https://revanthm.vercel.app/">Revanth Modalavalasa</a>
+</p>

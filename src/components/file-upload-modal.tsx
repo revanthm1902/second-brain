@@ -67,24 +67,33 @@ export function FileUploadModal({ open, onOpenChange, onCreated }: FileUploadMod
     setLoading(true);
     setError(null);
 
-    const formData = new FormData();
-    formData.set("file", selectedFile);
+    try {
+      const formData = new FormData();
+      formData.set("file", selectedFile);
 
-    const result = await uploadFile(formData);
-    if (result.success && result.item) {
-      setAiResult({
-        summary: result.item.ai_summary || "",
-        tags: result.item.ai_tags || [],
-        category: result.item.ai_category || "Learning",
-      });
-      setTimeout(() => {
-        onOpenChange(false);
-        setAiResult(null);
-        setSelectedFile(null);
-        onCreated();
-      }, 3000);
-    } else {
-      setError(result.error || "Upload failed");
+      const result = await uploadFile(formData);
+      if (result.success && result.item) {
+        setAiResult({
+          summary: result.item.ai_summary || "",
+          tags: result.item.ai_tags || [],
+          category: result.item.ai_category || "Learning",
+        });
+        setTimeout(() => {
+          onOpenChange(false);
+          setAiResult(null);
+          setSelectedFile(null);
+          onCreated();
+        }, 3000);
+      } else {
+        setError(result.error || "Upload failed");
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.includes("Body exceeded") || message.includes("body size")) {
+        setError("File is too large for processing. Please use a smaller file (under 5MB).");
+      } else {
+        setError(message || "An unexpected error occurred. Please try again.");
+      }
     }
     setLoading(false);
   }
